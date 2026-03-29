@@ -8,7 +8,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 const int powerPin = 12;
 const int calcPin = 11;
 
-const int pressPin = 10;
+const int pessPin = 10;
 const int optPin = 9;
 
 const int signPin = 8;
@@ -22,6 +22,8 @@ bool power = false;
 int mode = 0;
 
 int pulls = 0;
+
+bool lastCalcState = HIGH;
 
 float odds = 0;
 
@@ -51,7 +53,7 @@ void setup() {
   pinMode(powerPin, INPUT_PULLUP);
   pinMode(calcPin, INPUT_PULLUP);
 
-  pinMode(pressPin, INPUT_PULLUP);
+  pinMode(pessPin, INPUT_PULLUP);
   pinMode(optPin, INPUT_PULLUP);
 
   pinMode(signPin, INPUT_PULLUP);
@@ -67,7 +69,105 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  if (digitalRead(powerPin) == LOW) {
+  powerCheck();
+
+  while (power) {
+    
+  powerCheck();
+
+    bool calcState = digitalRead(calcPin);
+
+    if ((calcState == LOW && lastCalcState == HIGH) && (mode == 0 || mode == 3)) {
+      mode += 1;
+      delay(100);
+
+    }
+
+     if ((calcState == LOW && lastCalcState == HIGH) && (mode == 2)) {
+      mode += 2;
+      delay(100);
+
+    }
+
+    lastCalcState = calcState;
+      
+
+    if (mode == 0) {
+      lcd.setCursor(0, 0);
+      lcd.print(F("Genshin/HSR Calc"));
+      lcd.setCursor(0, 1);
+      lcd.print(F("Calc to start!"));
+
+    } else if (mode == 1) {
+
+      lcd.setCursor(0, 0);
+      lcd.print(F("Feel pessimistic"));
+      lcd.setCursor(0, 1);
+      lcd.print(F("Or optimistic?"));
+
+      if(digitalRead(pessPin) == LOW) {
+        mode = 2;
+        lcd.clear();
+      } else if (digitalRead(optPin) == LOW) {
+        mode = 3;
+        lcd.clear();
+        }
+      } else if (mode == 2) {
+        lcd.setCursor(0, 0);
+        lcd.print(F("Pulls: "));
+        lcd.print(pulls);
+        lcd.print(F(" ~ P"));
+        lcd.setCursor(0, 1);
+        lcd.print(F("Calc when done!"));
+
+        
+      }
+    }
+
+  }
+
+}
+
+float cumulative (int pulls) {
+  if (pulls == 0){
+    return 0.00000;
+  } else if (pulls >= 90) {
+    return 1.00000;
+  } else if ((pulls >= 1) && (pulls <= 73)) {
+    return 1 - pow(0.996, pulls);
+  } else if ((pulls >= 74) && (pulls <= 89)) {
+    return table[pulls - 74];
+  } else {
+    return 0.40404; //Error
+  }
+}
+
+float pExactX (int pulls) {
+  if (pulls == 0) {
+    return 0.00000;
+  } else if (pulls == 90){
+    return  1.0 - cumulative(89);
+  } else if ((pulls >= 1) && (pulls <= 73)) {
+    return 0.00600;
+  } else if ((pulls >= 74) && (pulls <= 89)) {
+    return ((6*(pulls - 73)) + 0.6)/100;
+  } else {
+    return 0.40404;
+  }
+}
+
+float pessimistic(int N) {
+  float total = 0;
+
+  for (int x = 1; x <= N; x++) {
+    total = total + (pExactX(x) * cumulative(N - x));
+  }
+
+  return total;
+}
+
+void powerCheck() {
+    if (digitalRead(powerPin) == LOW) {
     power = !power;
     lcd.clear();
     
@@ -81,27 +181,9 @@ void loop() {
     }
     delay(150);
   }
-
-
 }
 
-float cumulative (int pulls) {
-  if (pulls == 0){
-    return 0.00000;
-  } else if (pulls == 90) {
-    return 1.00000;
-  } else if ((pulls >= 1) && (pulls <= 73)) {
-    return 1 - pow(0.996, pulls);
-  } else if ((pulls >= 74) && (pulls <= 89)) {
-    return table[pulls - 74];
-  } else {
-    return 0.40404; //Error
-  }
-}
-
-float pessimistic (int pulls) {
-  if (pulls)
-}
+// P (odds of eaxctly X) * C(N - X)
 
 /*
 On/Off ~ 1 button
@@ -161,6 +243,7 @@ X is defined as
 
 If pulls = 0 or 90, there are already predetermined cases such as 0.0 and 1.0
 */
+
 
 //March 29th, 2026
 
