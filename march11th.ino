@@ -256,10 +256,15 @@
   }
 
   void powerCheck() {
-      if (digitalRead(powerPin) == LOW) {
-      power = !power;
-      lcd.clear();
-      
+      powerState = digitalRead(powerPin);
+
+      if (lastPowerState == HIGH && powerState == LOW) {
+        power = !power;
+        clearScreen();
+      } 
+
+      lastPowerState = powerState;
+
       if(power) { 
         lcd.init(); 
         lcd.backlight();
